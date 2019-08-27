@@ -165,8 +165,41 @@ void Task::updateHook()
 {
     TaskBase::updateHook();
 }
+
+template<typename T>
+T may_invalidate(T const& value)
+{
+    if (value == T::Zero())
+        return T::Ones() * base::unknown<double>();
+    else return value;
+}
+base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::GPSData &data) const {
+    base::samples::RigidBodyState rbs;
+    gps_base::Solution geodeticPosition;
+
+    Eigen::Vector3d body2ned_velocity = Eigen::Vector3d(
+        data.vel_ned.x(), data.vel_ned.y(), data.vel_ned.z());
+
+    rbs.time = data.time;
+    rbs.velocity = Eigen::AngleAxisd(
+        M_PI, Eigen::Vector3d::UnitX()) * may_invalidate(body2ned_velocity);
+
+    geodeticPosition.latitude = data.latitude.getDeg();
+    geodeticPosition.longitude = data.longitude.getDeg();
+    geodeticPosition.altitude = data.height;
+
+    rbs.position = mUTMConverter.convertToNWU(geodeticPosition).position;
+    return rbs;
+}
 void Task::processIO()
 {
+    gps_ublox::UBX::Frame frame = mDriver->readFrame();
+    if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_PVT) {
+        gps_ublox::GPSData data = UBX::parsePVT(frame.payload);
+        _pose_samples.write(convertToRBS(data));
+        _signal_info.write(mDriver->readSignalInfo());
+        _rf_info.write(mDriver->readRFInfo());
+    }
 }
 void Task::errorHook()
 {

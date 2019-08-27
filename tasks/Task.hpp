@@ -6,6 +6,7 @@
 #include "gps_ublox/TaskBase.hpp"
 #include <gps_ublox/Driver.hpp>
 #include <gps_base/UTMConverter.hpp>
+#include <base/samples/RigidBodyState.hpp>
 
 namespace gps_ublox{
 
@@ -101,6 +102,7 @@ namespace gps_ublox{
         void cleanupHook();
 
         void loadConfiguration();
+        base::samples::RigidBodyState convertToRBS(const gps_ublox::GPSData &data) const;
     };
 }
 
