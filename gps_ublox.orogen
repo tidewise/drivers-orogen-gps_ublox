@@ -1,0 +1,37 @@
+# frozen_string_literal: true
+
+name 'gps_ublox'
+
+import_types_from 'std'
+import_types_from 'base'
+import_types_from 'iodrivers_base'
+import_types_from 'gps_base'
+using_task_library 'iodrivers_base'
+
+using_library 'gps_ublox'
+import_types_from 'gps_ubloxTypes.hpp'
+import_types_from 'gps_ublox/SignalInfo.hpp'
+import_types_from 'gps_ublox/RFInfo.hpp'
+import_types_from 'gps_ublox/GPSData.hpp'
+
+task_context 'Task', subclasses: 'iodrivers_base::Task' do
+    needs_configuration
+
+    property 'utm_parameters', 'gps_base/UTMConversionParameters'
+
+    property 'enabled_ports', 'gps_ublox/configuration/Ports'
+    property 'persist_configuration', 'bool', true
+    property 'intput_protocols', 'gps_ublox/configuration/PortProtocols'
+    property 'output_protocols', 'gps_ublox/configuration/PortProtocols'
+    property 'msg_rates', 'gps_ublox/configuration/MessageRates'
+    property 'odometer_configuration', 'gps_ublox/configuration/Odometer'
+    property 'navigation_configuration', 'gps_ublox/configuration/Navigation'
+
+    output_port 'pose_samples', 'base/samples/RigidBodyState'
+    output_port 'gps_solution', 'gps_base/Solution'
+    output_port 'satellite_info', 'gps_base/SatelliteInfo'
+    output_port 'signal_info', 'gps_ublox/SignalInfo'
+    output_port 'rf_info', 'gps_ublox/RFInfo'
+
+    fd_driven
+end

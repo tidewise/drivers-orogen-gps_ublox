@@ -1,0 +1,14 @@
+<package>
+  <description brief="Orogen component for u-blox GPS modules">
+  Orogen component for u-blox GPS modules
+  </description>
+  <author>Gabriel Arjones/gabriel.arjones@tidewise.io</author>
+  <license>3-clause BSD</license>
+  <url>http://github.com/tidewise/drivers-orogen-gps_ublox</url>
+  <depeng package="orogen" />
+  <depend package="base/cmake" />
+  <depend package="base/orogen/types" />
+  <depend package="drivers/orogen/iodrivers_base" />
+  <depend package="drivers/orogen/gps_base" />
+  <depend package="drivers/gps_ublox" />
+</package>
