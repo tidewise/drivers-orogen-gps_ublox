@@ -21,7 +21,7 @@ task_context 'Task', subclasses: 'iodrivers_base::Task' do
 
     property 'enabled_ports', 'gps_ublox/configuration/Ports'
     property 'persist_configuration', 'bool', true
-    property 'intput_protocols', 'gps_ublox/configuration/PortProtocols'
+    property 'input_protocols', 'gps_ublox/configuration/PortProtocols'
     property 'output_protocols', 'gps_ublox/configuration/PortProtocols'
     property 'msg_rates', 'gps_ublox/configuration/MessageRates'
     property 'odometer_configuration', 'gps_ublox/configuration/Odometer'

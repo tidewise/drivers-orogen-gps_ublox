@@ -4,6 +4,8 @@
 #define GPS_UBLOX_TASK_TASK_HPP
 
 #include "gps_ublox/TaskBase.hpp"
+#include <gps_ublox/Driver.hpp>
+#include <gps_base/UTMConverter.hpp>
 
 namespace gps_ublox{
 
@@ -11,7 +13,7 @@ namespace gps_ublox{
      * \brief The task context provides and requires services. It uses an ExecutionEngine to perform its functions.
      * Essential interfaces are operations, data flow ports and properties. These interfaces have been defined using the oroGen specification.
      * In order to modify the interfaces you should (re)use oroGen and rely on the associated workflow.
-     * 
+     *
      * \details
      * The name of a TaskContext is primarily defined via:
      \verbatim
@@ -25,8 +27,8 @@ namespace gps_ublox{
     {
 	friend class TaskBase;
     protected:
-
-
+        gps_base::UTMConverter mUTMConverter;
+        std::unique_ptr<gps_ublox::Driver> mDriver;
 
     public:
         /** TaskContext constructor for Task
@@ -97,6 +99,8 @@ namespace gps_ublox{
          * before calling start() again.
          */
         void cleanupHook();
+
+        void loadConfiguration();
     };
 }
 
