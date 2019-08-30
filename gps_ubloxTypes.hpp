@@ -7,40 +7,10 @@
 
 namespace gps_ublox {
     namespace configuration {
-        struct Ports {
-            bool i2c = false;
-            bool uart1 = true;
-            bool uart2 = true;
-            bool usb = true;
-            bool spi = false;
-        };
-
-        struct Protocols {
-            bool nmea = false;
-            bool ubx = true;
-            bool rtcm3x = false;
-        };
-
-        struct PortProtocols {
-            Protocols i2c;
-            Protocols uart1;
-            Protocols uart2;
-            Protocols usb;
-            Protocols spi;
-        };
-
-        struct Messages {
+        struct MessageRates {
             uint8_t nav_pvt = 1;
             uint8_t nav_sig = 0;
             uint8_t mon_rf = 0;
-        };
-
-        struct MessageRates {
-            Messages i2c;
-            Messages uart1;
-            Messages uart2;
-            Messages usb;
-            Messages spi;
         };
 
         struct Odometer {
