@@ -101,8 +101,13 @@ base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::GPSData &data)
     geodeticPosition.latitude = data.latitude.getDeg();
     geodeticPosition.longitude = data.longitude.getDeg();
     geodeticPosition.altitude = data.height;
+    geodeticPosition.deviationAltitude = data.vertical_accuracy;
+    geodeticPosition.deviationLatitude = data.horizontal_accuracy;
+    geodeticPosition.deviationLongitude = data.horizontal_accuracy;
 
-    rbs.position = mUTMConverter.convertToNWU(geodeticPosition).position;
+    base::samples::RigidBodyState nwu = mUTMConverter.convertToNWU(geodeticPosition);
+    rbs.position = nwu.position;
+    rbs.cov_position = nwu.cov_position;
     return rbs;
 }
 gps_base::SatelliteInfo Task::convertToBaseSatelliteInfo(const SatelliteInfo &sat_info) const
