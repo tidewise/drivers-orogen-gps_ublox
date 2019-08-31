@@ -110,7 +110,21 @@ void Task::processIO()
     gps_ublox::UBX::Frame frame = mDriver->readFrame();
     if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_PVT) {
         gps_ublox::GPSData data = UBX::parsePVT(frame.payload);
+
+        gps_ublox::SatelliteInfo dev_sat_info = mDriver->readSatelliteInfo();
+        gps_base::SatelliteInfo rock_sat_info;
+        for (const SatelliteInfo::Data &data : dev_sat_info.signals) {
+            gps_base::Satellite sat;
+            sat.azimuth = (int)data.azimuth.getDeg();
+            sat.elevation = (int)data.elevation.getDeg();
+            sat.PRN = data.satellite_id;
+            sat.SNR = (double)data.signal_strength;
+
+            rock_sat_info.knownSatellites.push_back(sat);
+        }
+
         _pose_samples.write(convertToRBS(data));
+        _satellite_info.write(rock_sat_info);
         _signal_info.write(mDriver->readSignalInfo());
         _rf_info.write(mDriver->readRFInfo());
     }
