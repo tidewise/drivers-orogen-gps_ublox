@@ -105,26 +105,67 @@ base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::GPSData &data)
     rbs.position = mUTMConverter.convertToNWU(geodeticPosition).position;
     return rbs;
 }
+gps_base::SatelliteInfo Task::convertToBaseSatelliteInfo(const SatelliteInfo &sat_info) const
+{
+    gps_base::SatelliteInfo rock_sat_info;
+
+    rock_sat_info.time = base::Time::now();
+    for (const SatelliteInfo::Data &data : sat_info.signals) {
+        gps_base::Satellite sat;
+        sat.azimuth = (int)data.azimuth.getDeg();
+        sat.elevation = (int)data.elevation.getDeg();
+        sat.PRN = data.satellite_id;
+        sat.SNR = (double)data.signal_strength;
+
+        rock_sat_info.knownSatellites.push_back(sat);
+    }
+    return rock_sat_info;
+}
+gps_base::Solution Task::convertToBaseSolution(const GPSData &data) const
+{
+    gps_base::Solution solution;
+
+    // solution.ageOfDifferentialCorrections = <unavailable>
+    // solution.geoidalSeparation = <unavailable>
+    solution.altitude = data.height_above_mean_sea_level;
+    solution.deviationAltitude = data.vertical_accuracy;
+    solution.deviationLatitude = data.horizontal_accuracy;
+    solution.deviationLongitude = data.horizontal_accuracy;
+    solution.noOfSatellites = data.num_sats;
+    switch (data.fix_type) {
+        case GPSData::NO_FIX:
+        case GPSData::TIME_ONLY:
+            solution.positionType = gps_base::NO_SOLUTION;
+            break;
+        case GPSData::DEAD_RECKONING:
+            solution.positionType = gps_base::RTK_FLOAT;
+            break;
+        case GPSData::FIX_2D:
+            solution.positionType = gps_base::AUTONOMOUS_2D;
+            break;
+        case GPSData::FIX_3D:
+            solution.positionType = gps_base::AUTONOMOUS;
+            break;
+        case GPSData::GNSS_PLUS_DEAD_RECKONING:
+            solution.positionType = gps_base::RTK_FIXED;
+            break;
+        default:
+            solution.positionType = gps_base::INVALID;
+            break;
+    }
+    solution.time = data.time;
+    return solution;
+}
 void Task::processIO()
 {
     gps_ublox::UBX::Frame frame = mDriver->readFrame();
     if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_PVT) {
         gps_ublox::GPSData data = UBX::parsePVT(frame.payload);
-
-        gps_ublox::SatelliteInfo dev_sat_info = mDriver->readSatelliteInfo();
-        gps_base::SatelliteInfo rock_sat_info;
-        for (const SatelliteInfo::Data &data : dev_sat_info.signals) {
-            gps_base::Satellite sat;
-            sat.azimuth = (int)data.azimuth.getDeg();
-            sat.elevation = (int)data.elevation.getDeg();
-            sat.PRN = data.satellite_id;
-            sat.SNR = (double)data.signal_strength;
-
-            rock_sat_info.knownSatellites.push_back(sat);
-        }
+        gps_ublox::SatelliteInfo sat_info = mDriver->readSatelliteInfo();
 
         _pose_samples.write(convertToRBS(data));
-        _satellite_info.write(rock_sat_info);
+        _gps_solution.write(convertToBaseSolution(data));
+        _satellite_info.write(convertToBaseSatelliteInfo(sat_info));
         _signal_info.write(mDriver->readSignalInfo());
         _rf_info.write(mDriver->readRFInfo());
     }
