@@ -6,13 +6,22 @@
 #include <gps_ublox/UBX.hpp>
 
 namespace gps_ublox {
+    /**
+     * Component configuration namespace
+     */
     namespace configuration {
+        /**
+         * Rate of periodic messages sent by the device (per second, per epoch)
+         */
         struct MessageRates {
             uint8_t nav_pvt = 1;
             uint8_t nav_sig = 0;
             uint8_t mon_rf = 0;
         };
 
+        /**
+         * Device's internal odometer configuration
+         */
         struct Odometer {
             bool enabled = true;
             bool low_speed_course_over_ground_filter = true;
@@ -25,6 +34,9 @@ namespace gps_ublox {
             uint8_t heading_low_pass_filter_level = 1;
         };
 
+        /**
+         * Navigtation solutions configuration
+         */
         struct Navigation {
             uint16_t position_measurement_period = 500;
             uint16_t measurements_per_solution_ratio = 5;

@@ -18,11 +18,19 @@ import_types_from 'gps_ublox/GPSData.hpp'
 task_context 'Task', subclasses: 'iodrivers_base::Task' do
     needs_configuration
 
+    # Lat/Lon to UTM convertion configuration
     property 'utm_parameters', 'gps_base/UTMConversionParameters'
 
+    # The device port used to communicate with this component
     property 'device_port', 'gps_ublox/Driver/DevicePort', 'PORT_USB'
+
+    # Message output rates
     property 'msg_rates', 'gps_ublox/configuration/MessageRates'
+
+    # Device's dometer configuration
     property 'odometer_configuration', 'gps_ublox/configuration/Odometer'
+
+    # Navigation solution's configuration
     property 'navigation_configuration', 'gps_ublox/configuration/Navigation'
 
     output_port 'pose_samples', 'base/samples/RigidBodyState'
