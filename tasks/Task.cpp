@@ -140,19 +140,15 @@ gps_base::Solution Task::convertToBaseSolution(const GPSData &data) const
     switch (data.fix_type) {
         case GPSData::NO_FIX:
         case GPSData::TIME_ONLY:
-            solution.positionType = gps_base::NO_SOLUTION;
-            break;
         case GPSData::DEAD_RECKONING:
-            solution.positionType = gps_base::RTK_FLOAT;
+            solution.positionType = gps_base::NO_SOLUTION;
             break;
         case GPSData::FIX_2D:
             solution.positionType = gps_base::AUTONOMOUS_2D;
             break;
         case GPSData::FIX_3D:
-            solution.positionType = gps_base::AUTONOMOUS;
-            break;
         case GPSData::GNSS_PLUS_DEAD_RECKONING:
-            solution.positionType = gps_base::RTK_FIXED;
+            solution.positionType = gps_base::AUTONOMOUS;
             break;
         default:
             solution.positionType = gps_base::INVALID;
