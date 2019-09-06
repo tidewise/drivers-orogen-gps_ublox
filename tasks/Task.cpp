@@ -103,14 +103,8 @@ base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::GPSData &data)
     rbs.velocity = Eigen::AngleAxisd(
         M_PI, Eigen::Vector3d::UnitX()) * may_invalidate(body2ned_velocity);
 
-    geodeticPosition.latitude = data.latitude.getDeg();
-    geodeticPosition.longitude = data.longitude.getDeg();
-    geodeticPosition.altitude = data.height;
-    geodeticPosition.deviationAltitude = data.vertical_accuracy;
-    geodeticPosition.deviationLatitude = data.horizontal_accuracy;
-    geodeticPosition.deviationLongitude = data.horizontal_accuracy;
-
-    base::samples::RigidBodyState nwu = mUTMConverter.convertToNWU(geodeticPosition);
+    auto geodetic = convertToBaseSolution(data);
+    base::samples::RigidBodyState nwu = mUTMConverter.convertToNWU(geodetic);
     rbs.position = nwu.position;
     rbs.cov_position = nwu.cov_position;
     return rbs;
@@ -137,6 +131,8 @@ gps_base::Solution Task::convertToBaseSolution(const GPSData &data) const
 
     // solution.ageOfDifferentialCorrections = <unavailable>
     // solution.geoidalSeparation = <unavailable>
+    solution.latitude = data.latitude.getDeg();
+    solution.longitude = data.longitude.getDeg();
     solution.altitude = data.height_above_mean_sea_level;
     solution.deviationAltitude = data.vertical_accuracy;
     solution.deviationLatitude = data.horizontal_accuracy;
