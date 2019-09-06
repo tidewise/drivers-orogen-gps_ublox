@@ -129,8 +129,8 @@ gps_base::Solution Task::convertToBaseSolution(const GPSData &data) const
 {
     gps_base::Solution solution;
 
-    // solution.ageOfDifferentialCorrections = <unavailable>
-    // solution.geoidalSeparation = <unavailable>
+    solution.ageOfDifferentialCorrections = base::unknown<double>();
+    solution.geoidalSeparation = base::unknown<double>();
     solution.latitude = data.latitude.getDeg();
     solution.longitude = data.longitude.getDeg();
     solution.altitude = data.height_above_mean_sea_level;
