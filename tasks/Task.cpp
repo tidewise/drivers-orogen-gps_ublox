@@ -17,6 +17,8 @@ Task::~Task()
 
 void Task::loadConfiguration() {
     Driver::DevicePort port = _device_port.get();
+    mDriver->setPortProtocol(port, Driver::DIRECTION_OUTPUT,
+                             Driver::PROTOCOL_UBX, true, false);
 
     // Message rates
     configuration::MessageRates rates = _msg_rates.get();
