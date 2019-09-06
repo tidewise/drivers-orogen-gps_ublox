@@ -38,12 +38,21 @@ namespace gps_ublox {
          * Navigtation solutions configuration
          */
         struct Navigation {
-            uint16_t position_measurement_period = 500;
-            uint16_t measurements_per_solution_ratio = 5;
+
+            base::Time position_measurement_period =
+                base::Time::fromMilliseconds(1000);
+            uint16_t measurements_per_solution_ratio = 1;
             UBX::TimeSystem time_system = UBX::GPS;
             UBX::DynamicModel dynamic_model = UBX::SEA;
-            uint8_t speed_threshold = 1;
-            uint16_t static_hold_distance_threshold = 1;
+
+            /** Speed below which the receiver is considered static (in m/s)
+             *
+             * Resolution is 1cm
+             */
+            float speed_threshold = 0;
+
+            /** Distance above which GNSSbased stationary motion is exit (m) */
+            int static_hold_distance_threshold;
         };
     }
 }

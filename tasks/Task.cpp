@@ -39,12 +39,16 @@ void Task::loadConfiguration() {
 
     // Navigation configuration
     configuration::Navigation nav_cfg = _navigation_configuration.get();
-    mDriver->setPositionMeasurementPeriod(nav_cfg.position_measurement_period, false);
-    mDriver->setMeasurementsPerSolutionRatio(nav_cfg.measurements_per_solution_ratio, false);
+    mDriver->setPositionMeasurementPeriod(
+        nav_cfg.position_measurement_period.toMilliseconds(), false);
+    mDriver->setMeasurementsPerSolutionRatio(
+        nav_cfg.measurements_per_solution_ratio, false);
     mDriver->setTimeSystem(nav_cfg.time_system, false);
     mDriver->setDynamicModel(nav_cfg.dynamic_model, false);
-    mDriver->setSpeedThreshold(nav_cfg.speed_threshold, false);
-    mDriver->setStaticHoldDistanceThreshold(nav_cfg.static_hold_distance_threshold, false);
+    mDriver->setSpeedThreshold(
+        std::round(nav_cfg.speed_threshold * 100), false);
+    mDriver->setStaticHoldDistanceThreshold(
+        nav_cfg.static_hold_distance_threshold, false);
 }
 
 /// The following lines are template definitions for the various state machine
@@ -87,6 +91,7 @@ T may_invalidate(T const& value)
         return T::Ones() * base::unknown<double>();
     else return value;
 }
+
 base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::GPSData &data) const {
     base::samples::RigidBodyState rbs;
     gps_base::Solution geodeticPosition;
