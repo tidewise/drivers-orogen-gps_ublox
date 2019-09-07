@@ -17,6 +17,8 @@ Task::~Task()
 
 void Task::loadConfiguration() {
     Driver::DevicePort port = _device_port.get();
+    mDriver->setPortProtocol(port, Driver::DIRECTION_OUTPUT,
+                             Driver::PROTOCOL_UBX, true, false);
 
     // Message rates
     configuration::MessageRates rates = _msg_rates.get();
@@ -39,12 +41,16 @@ void Task::loadConfiguration() {
 
     // Navigation configuration
     configuration::Navigation nav_cfg = _navigation_configuration.get();
-    mDriver->setPositionMeasurementPeriod(nav_cfg.position_measurement_period, false);
-    mDriver->setMeasurementsPerSolutionRatio(nav_cfg.measurements_per_solution_ratio, false);
+    mDriver->setPositionMeasurementPeriod(
+        nav_cfg.position_measurement_period.toMilliseconds(), false);
+    mDriver->setMeasurementsPerSolutionRatio(
+        nav_cfg.measurements_per_solution_ratio, false);
     mDriver->setTimeSystem(nav_cfg.time_system, false);
     mDriver->setDynamicModel(nav_cfg.dynamic_model, false);
-    mDriver->setSpeedThreshold(nav_cfg.speed_threshold, false);
-    mDriver->setStaticHoldDistanceThreshold(nav_cfg.static_hold_distance_threshold, false);
+    mDriver->setSpeedThreshold(
+        std::round(nav_cfg.speed_threshold * 100), false);
+    mDriver->setStaticHoldDistanceThreshold(
+        nav_cfg.static_hold_distance_threshold, false);
 }
 
 /// The following lines are template definitions for the various state machine
@@ -87,6 +93,7 @@ T may_invalidate(T const& value)
         return T::Ones() * base::unknown<double>();
     else return value;
 }
+
 base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::GPSData &data) const {
     base::samples::RigidBodyState rbs;
     gps_base::Solution geodeticPosition;
@@ -98,14 +105,8 @@ base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::GPSData &data)
     rbs.velocity = Eigen::AngleAxisd(
         M_PI, Eigen::Vector3d::UnitX()) * may_invalidate(body2ned_velocity);
 
-    geodeticPosition.latitude = data.latitude.getDeg();
-    geodeticPosition.longitude = data.longitude.getDeg();
-    geodeticPosition.altitude = data.height;
-    geodeticPosition.deviationAltitude = data.vertical_accuracy;
-    geodeticPosition.deviationLatitude = data.horizontal_accuracy;
-    geodeticPosition.deviationLongitude = data.horizontal_accuracy;
-
-    base::samples::RigidBodyState nwu = mUTMConverter.convertToNWU(geodeticPosition);
+    auto geodetic = convertToBaseSolution(data);
+    base::samples::RigidBodyState nwu = mUTMConverter.convertToNWU(geodetic);
     rbs.position = nwu.position;
     rbs.cov_position = nwu.cov_position;
     return rbs;
@@ -130,8 +131,10 @@ gps_base::Solution Task::convertToBaseSolution(const GPSData &data) const
 {
     gps_base::Solution solution;
 
-    // solution.ageOfDifferentialCorrections = <unavailable>
-    // solution.geoidalSeparation = <unavailable>
+    solution.ageOfDifferentialCorrections = base::unknown<double>();
+    solution.geoidalSeparation = base::unknown<double>();
+    solution.latitude = data.latitude.getDeg();
+    solution.longitude = data.longitude.getDeg();
     solution.altitude = data.height_above_mean_sea_level;
     solution.deviationAltitude = data.vertical_accuracy;
     solution.deviationLatitude = data.horizontal_accuracy;
