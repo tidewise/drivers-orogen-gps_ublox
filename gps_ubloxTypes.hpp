@@ -15,8 +15,9 @@ namespace gps_ublox {
          */
         struct MessageRates {
             uint8_t nav_pvt = 1;
-            uint8_t nav_sig = 0;
-            uint8_t mon_rf = 0;
+            uint8_t nav_sig = 10;
+            uint8_t nav_sat = 10;
+            uint8_t mon_rf = 10;
         };
 
         /**

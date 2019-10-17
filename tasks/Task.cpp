@@ -25,6 +25,7 @@ void Task::loadConfiguration() {
     mDriver->setOutputRate(port, Driver::MSGOUT_MON_RF, rates.mon_rf, false);
     mDriver->setOutputRate(port, Driver::MSGOUT_NAV_PVT, rates.nav_pvt, false);
     mDriver->setOutputRate(port, Driver::MSGOUT_NAV_SIG, rates.nav_sig, false);
+    mDriver->setOutputRate(port, Driver::MSGOUT_NAV_SAT, rates.nav_sat, false);
 
     // Odometer configuration
     configuration::Odometer odom_cfg = _odometer_configuration.get();
@@ -171,13 +172,19 @@ void Task::processIO()
     gps_ublox::UBX::Frame frame = mDriver->readFrame();
     if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_PVT) {
         gps_ublox::GPSData data = UBX::parsePVT(frame.payload);
-        gps_ublox::SatelliteInfo sat_info = mDriver->readSatelliteInfo();
 
         _pose_samples.write(convertToRBS(data));
         _gps_solution.write(convertToBaseSolution(data));
-        _satellite_info.write(convertToBaseSatelliteInfo(sat_info));
-        _signal_info.write(mDriver->readSignalInfo());
-        _rf_info.write(mDriver->readRFInfo());
+    }
+    else if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_SAT) {
+        auto info = convertToBaseSatelliteInfo(UBX::parseSAT(frame.payload));
+        _satellite_info.write(info);
+    }
+    else if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_SIG) {
+        _signal_info.write(UBX::parseSIG(frame.payload));
+    }
+    else if (frame.msg_class == UBX::MSG_CLASS_MON && frame.msg_id == UBX::MSG_ID_RF) {
+        _rf_info.write(UBX::parseRF(frame.payload));
     }
 }
 void Task::errorHook()
