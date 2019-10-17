@@ -63,12 +63,14 @@ bool Task::configureHook()
 
     iodrivers_base::ConfigureGuard guard(this);
     mDriver = std::unique_ptr<gps_ublox::Driver>(new Driver());
-    if (!_io_port.get().empty())
+    if (!_io_port.get().empty()) {
         mDriver->openURI(_io_port.get());
+    }
     setDriver(mDriver.get());
 
-    if (! TaskBase::configureHook())
+    if (! TaskBase::configureHook()) {
         return false;
+    }
 
     loadConfiguration();
 
@@ -77,8 +79,9 @@ bool Task::configureHook()
 }
 bool Task::startHook()
 {
-    if (! TaskBase::startHook())
+    if (! TaskBase::startHook()) {
         return false;
+    }
     return true;
 }
 void Task::updateHook()
@@ -89,9 +92,12 @@ void Task::updateHook()
 template<typename T>
 T may_invalidate(T const& value)
 {
-    if (value == T::Zero())
+    if (value == T::Zero()) {
         return T::Ones() * base::unknown<double>();
-    else return value;
+    }
+    else {
+        return value;
+    }
 }
 
 base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::GPSData &data) const {
