@@ -109,8 +109,7 @@ base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::GPSData &data)
         data.vel_ned.x(), data.vel_ned.y(), data.vel_ned.z());
 
     rbs.time = data.time;
-    rbs.velocity = Eigen::AngleAxisd(
-        M_PI, Eigen::Vector3d::UnitX()) * may_invalidate(body2ned_velocity);
+    rbs.velocity = Eigen::Vector3d(data.vel_ned.x(), -data.vel_ned.y(), -data.vel_ned.z());
 
     auto geodetic = convertToBaseSolution(data);
     base::samples::RigidBodyState nwu = mUTMConverter.convertToNWU(geodetic);
