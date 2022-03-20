@@ -10,10 +10,10 @@ using_task_library "iodrivers_base"
 
 using_library "gps_ublox"
 import_types_from "gps_ubloxTypes.hpp"
-import_types_from "gps_ublox/Driver.hpp"
+import_types_from "gps_ublox/cfg.hpp"
 import_types_from "gps_ublox/SignalInfo.hpp"
 import_types_from "gps_ublox/RFInfo.hpp"
-import_types_from "gps_ublox/GPSData.hpp"
+import_types_from "gps_ublox/PVT.hpp"
 
 task_context "Task", subclasses: "iodrivers_base::Task" do
     needs_configuration
@@ -22,7 +22,7 @@ task_context "Task", subclasses: "iodrivers_base::Task" do
     property "utm_parameters", "gps_base/UTMConversionParameters"
 
     # The device port used to communicate with this component
-    property "device_port", "gps_ublox/Driver/DevicePort", "PORT_USB"
+    property "device_port", "gps_ublox/DevicePort", "PORT_USB"
 
     # Message output rates
     property "msg_rates", "gps_ublox/configuration/MessageRates"

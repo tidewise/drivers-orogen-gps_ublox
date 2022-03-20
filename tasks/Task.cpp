@@ -16,16 +16,15 @@ Task::~Task()
 }
 
 void Task::loadConfiguration() {
-    Driver::DevicePort port = _device_port.get();
-    mDriver->setPortProtocol(port, Driver::DIRECTION_OUTPUT,
-                             Driver::PROTOCOL_UBX, true, false);
+    DevicePort port = _device_port.get();
+    mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_UBX, true, false);
 
     // Message rates
     configuration::MessageRates rates = _msg_rates.get();
-    mDriver->setOutputRate(port, Driver::MSGOUT_MON_RF, rates.mon_rf, false);
-    mDriver->setOutputRate(port, Driver::MSGOUT_NAV_PVT, rates.nav_pvt, false);
-    mDriver->setOutputRate(port, Driver::MSGOUT_NAV_SIG, rates.nav_sig, false);
-    mDriver->setOutputRate(port, Driver::MSGOUT_NAV_SAT, rates.nav_sat, false);
+    mDriver->setOutputRate(port, MSGOUT_MON_RF, rates.mon_rf, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_PVT, rates.nav_pvt, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_SIG, rates.nav_sig, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_SAT, rates.nav_sat, false);
 
     // Odometer configuration
     configuration::Odometer odom_cfg = _odometer_configuration.get();
@@ -46,7 +45,7 @@ void Task::loadConfiguration() {
         nav_cfg.position_measurement_period.toMilliseconds(), false);
     mDriver->setMeasurementsPerSolutionRatio(
         nav_cfg.measurements_per_solution_ratio, false);
-    mDriver->setTimeSystem(nav_cfg.time_system, false);
+    mDriver->setMeasurementRefTime(nav_cfg.measurement_ref_time, false);
     mDriver->setDynamicModel(nav_cfg.dynamic_model, false);
     mDriver->setSpeedThreshold(
         std::round(nav_cfg.speed_threshold * 100), false);
@@ -101,7 +100,7 @@ T may_invalidate(T const& value)
     }
 }
 
-base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::GPSData &data) const {
+base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::PVT &data) const {
     base::samples::RigidBodyState rbs;
     gps_base::Solution geodeticPosition;
 
@@ -134,7 +133,7 @@ gps_base::SatelliteInfo Task::convertToBaseSatelliteInfo(const SatelliteInfo &sa
     }
     return rock_sat_info;
 }
-gps_base::Solution Task::convertToBaseSolution(const GPSData &data) const
+gps_base::Solution Task::convertToBaseSolution(const PVT &data) const
 {
     gps_base::Solution solution;
 
@@ -148,16 +147,16 @@ gps_base::Solution Task::convertToBaseSolution(const GPSData &data) const
     solution.deviationLongitude = data.horizontal_accuracy;
     solution.noOfSatellites = data.num_sats;
     switch (data.fix_type) {
-        case GPSData::NO_FIX:
-        case GPSData::TIME_ONLY:
-        case GPSData::DEAD_RECKONING:
+        case PVT::NO_FIX:
+        case PVT::TIME_ONLY:
+        case PVT::DEAD_RECKONING:
             solution.positionType = gps_base::NO_SOLUTION;
             break;
-        case GPSData::FIX_2D:
+        case PVT::FIX_2D:
             solution.positionType = gps_base::AUTONOMOUS_2D;
             break;
-        case GPSData::FIX_3D:
-        case GPSData::GNSS_PLUS_DEAD_RECKONING:
+        case PVT::FIX_3D:
+        case PVT::GNSS_PLUS_DEAD_RECKONING:
             solution.positionType = gps_base::AUTONOMOUS;
             break;
         default:
@@ -171,7 +170,7 @@ void Task::processIO()
 {
     gps_ublox::UBX::Frame frame = mDriver->readFrame();
     if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_PVT) {
-        gps_ublox::GPSData data = UBX::parsePVT(frame.payload);
+        gps_ublox::PVT data = UBX::parsePVT(frame.payload);
 
         _pose_samples.write(convertToRBS(data));
         _gps_solution.write(convertToBaseSolution(data));

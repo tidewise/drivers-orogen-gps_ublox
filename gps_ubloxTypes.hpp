@@ -28,7 +28,7 @@ namespace gps_ublox {
             bool low_speed_course_over_ground_filter = true;
             bool output_low_pass_filtered_velocity = true;
             bool output_low_pass_filtered_heading = true;
-            Driver::OdometerProfile odometer_profile = Driver::ODOM_SWIMMING;
+            OdometerProfile odometer_profile = ODOM_SWIMMING;
             uint8_t upper_speed_limit_for_heading_filter = 5;
             uint8_t max_position_accuracy_for_low_speed_heading_filter = 5;
             uint8_t velocity_low_pass_filter_level = 1;
@@ -40,11 +40,10 @@ namespace gps_ublox {
          */
         struct Navigation {
 
-            base::Time position_measurement_period =
-                base::Time::fromMilliseconds(1000);
+            base::Time position_measurement_period = base::Time::fromMilliseconds(1000);
             uint16_t measurements_per_solution_ratio = 1;
-            UBX::TimeSystem time_system = UBX::GPS;
-            UBX::DynamicModel dynamic_model = UBX::SEA;
+            MeasurementRefTime measurement_ref_time = MEASUREMENT_REF_TIME_GPS;
+            DynamicModel dynamic_model = DYNAMIC_MODEL_SEA;
 
             /** Speed below which the receiver is considered static (in m/s)
              *
@@ -53,7 +52,7 @@ namespace gps_ublox {
             float speed_threshold = 0;
 
             /** Distance above which GNSSbased stationary motion is exit (m) */
-            int static_hold_distance_threshold;
+            int static_hold_distance_threshold = 0;
         };
     }
 }

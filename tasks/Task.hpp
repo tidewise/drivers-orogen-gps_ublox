@@ -102,9 +102,9 @@ namespace gps_ublox{
         void cleanupHook();
 
         void loadConfiguration();
-        base::samples::RigidBodyState convertToRBS(const GPSData &data) const;
+        base::samples::RigidBodyState convertToRBS(const PVT &data) const;
         gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &data) const;
-        gps_base::Solution convertToBaseSolution(const GPSData &data) const;
+        gps_base::Solution convertToBaseSolution(const PVT &data) const;
     };
 }
 
