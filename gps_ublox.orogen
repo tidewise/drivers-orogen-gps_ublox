@@ -15,6 +15,12 @@ import_types_from "gps_ublox/SignalInfo.hpp"
 import_types_from "gps_ublox/RFInfo.hpp"
 import_types_from "gps_ublox/PVT.hpp"
 
+# Driver task for Ublox 9th Generation GNSS units, protocol 27.xx
+#
+# Data update periods are controlled by two properties.
+# `navigation_configuration` configures the period of signal acquisition and how
+# often a navigation solution is being generated. `msg_rates` controls which
+# messages are generated at what period, usually counted in solution epochs.
 task_context "Task", subclasses: "iodrivers_base::Task" do
     needs_configuration
 
@@ -33,10 +39,28 @@ task_context "Task", subclasses: "iodrivers_base::Task" do
     # Navigation solution's configuration
     property "navigation_configuration", "gps_ublox/configuration/Navigation"
 
+    #
+    # This port's period is configured by the nav_pvt field of msg_rates
     output_port "pose_samples", "base/samples/RigidBodyState"
+
+    # Description of the GNSS solution, including solution quality information
+    #
+    # This port's period is configured by the nav_pvt field of msg_rates
     output_port "gps_solution", "gps_base/Solution"
+
+    # Information about satellite tracking
+    #
+    # This port's period is configured by the nav_sat field of msg_rates
     output_port "satellite_info", "gps_base/SatelliteInfo"
+
+    # Signal quality information
+    #
+    # This port's period is configured by the nav_sig field of msg_rates
     output_port "signal_info", "gps_ublox/SignalInfo"
+
+    # RF info (quality/jamming)
+    #
+    # This port's period is configured by the mon_rf field of msg_rates
     output_port "rf_info", "gps_ublox/RFInfo"
 
     fd_driven

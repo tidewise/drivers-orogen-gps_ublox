@@ -12,11 +12,25 @@ namespace gps_ublox {
     namespace configuration {
         /**
          * Rate of periodic messages sent by the device (per second, per epoch)
+         *
+         * Set a rate to zero to disable
          */
         struct MessageRates {
+            /** NAV-PVT message period in solution periods. Controls pose_samples
+             * and gps_solution outputs
+             */
             uint8_t nav_pvt = 1;
+            /** NAV-SIG message period in solution periods. Controls
+             * pose_samples and gps_solution outputs
+             */
             uint8_t nav_sig = 10;
+            /** NAV-SAT message period in solution periods. Controls
+             * pose_samples and gps_solution outputs
+             */
             uint8_t nav_sat = 10;
+            /** MON-RF message period in solution periods. Controls
+             * pose_samples and gps_solution outputs
+             */
             uint8_t mon_rf = 10;
         };
 
