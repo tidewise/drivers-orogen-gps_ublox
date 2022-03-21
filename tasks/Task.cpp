@@ -100,7 +100,10 @@ T may_invalidate(T const& value)
     }
 }
 
-base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::PVT &data) const {
+static gps_base::Solution convertToBaseSolution(const PVT &data);
+static gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &sat_info);
+
+static base::samples::RigidBodyState convertToRBS(const gps_ublox::PVT &data, gps_base::UTMConverter& utmConverter) {
     base::samples::RigidBodyState rbs;
     gps_base::Solution geodeticPosition;
 
@@ -112,12 +115,12 @@ base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::PVT &data) con
         M_PI, Eigen::Vector3d::UnitX()) * may_invalidate(body2ned_velocity);
 
     auto geodetic = convertToBaseSolution(data);
-    base::samples::RigidBodyState nwu = mUTMConverter.convertToNWU(geodetic);
+    base::samples::RigidBodyState nwu = utmConverter.convertToNWU(geodetic);
     rbs.position = nwu.position;
     rbs.cov_position = nwu.cov_position;
     return rbs;
 }
-gps_base::SatelliteInfo Task::convertToBaseSatelliteInfo(const SatelliteInfo &sat_info) const
+static gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &sat_info)
 {
     gps_base::SatelliteInfo rock_sat_info;
 
@@ -133,7 +136,7 @@ gps_base::SatelliteInfo Task::convertToBaseSatelliteInfo(const SatelliteInfo &sa
     }
     return rock_sat_info;
 }
-gps_base::Solution Task::convertToBaseSolution(const PVT &data) const
+static gps_base::Solution convertToBaseSolution(const PVT &data)
 {
     gps_base::Solution solution;
 
@@ -166,25 +169,34 @@ gps_base::Solution Task::convertToBaseSolution(const PVT &data) const
     solution.time = data.time;
     return solution;
 }
+
+struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
+    Task& mTask;
+
+    PollCallbacks(Task& task, bool rtk)
+        : mTask(task), mOutputRTK(rtk) {}
+
+    void pvt(PVT const& pvt) override {
+        mTask._pose_samples.write(convertToRBS(pvt, mTask.mUTMConverter));
+        mTask._gps_solution.write(convertToBaseSolution(pvt));
+    }
+
+    void satelliteInfo(SatelliteInfo const& info) override {
+        mTask._satellite_info.write(convertToBaseSatelliteInfo(info));
+    }
+
+    void signalInfo(SignalInfo const& info) override {
+        mTask._signal_info.write(info);
+    }
+
+    void rfInfo(RFInfo const& info) override {
+        mTask._rf_info.write(info);
+    }
+};
 void Task::processIO()
 {
-    gps_ublox::UBX::Frame frame = mDriver->readFrame();
-    if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_PVT) {
-        gps_ublox::PVT data = UBX::parsePVT(frame.payload);
-
-        _pose_samples.write(convertToRBS(data));
-        _gps_solution.write(convertToBaseSolution(data));
-    }
-    else if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_SAT) {
-        auto info = convertToBaseSatelliteInfo(UBX::parseSAT(frame.payload));
-        _satellite_info.write(info);
-    }
-    else if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_SIG) {
-        _signal_info.write(UBX::parseSIG(frame.payload));
-    }
-    else if (frame.msg_class == UBX::MSG_CLASS_MON && frame.msg_id == UBX::MSG_ID_RF) {
-        _rf_info.write(UBX::parseRF(frame.payload));
-    }
+    PollCallbacks callbacks(*this);
+    mDriver->poll(callbacks);
 }
 void Task::errorHook()
 {
