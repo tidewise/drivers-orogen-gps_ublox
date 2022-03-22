@@ -34,6 +34,9 @@ namespace gps_ublox{
         gps_base::UTMConverter mUTMConverter;
         std::unique_ptr<gps_ublox::Driver> mDriver;
 
+        bool mOutputRTK;
+        RTKInfo mRTKInfo;
+
     public:
         /** TaskContext constructor for Task
          * \param name Name of the task. This name needs to be unique to make it identifiable via nameservices.

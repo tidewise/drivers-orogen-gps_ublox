@@ -2,8 +2,8 @@
 #define gps_ublox_TYPES_HPP
 
 #include <cstdint>
-#include <gps_ublox/Driver.hpp>
-#include <gps_ublox/UBX.hpp>
+#include <gps_ublox/cfg.hpp>
+#include <gps_ublox/RTKInfo.hpp>
 
 namespace gps_ublox {
     /**
@@ -32,6 +32,12 @@ namespace gps_ublox {
              * pose_samples and gps_solution outputs
              */
             uint8_t mon_rf = 10;
+            /** Control of the rtk_info output
+             *
+             * This is actually an aggregate of messages. Part of the structure
+             * is filled with NAV-SAT (controlled with nav_sat)
+             */
+            uint8_t rtk_info = 0;
         };
 
         /**

@@ -16,8 +16,12 @@ Task::~Task()
 }
 
 void Task::loadConfiguration() {
+    auto const& rtcmOutput = _rtcm_output_messages.get();
+    mOutputRTK = !rtcmOutput.empty();
+
     DevicePort port = _device_port.get();
     mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_UBX, true, false);
+    mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_RTCM3X, mOutputRTK, false);
 
     // Message rates
     configuration::MessageRates rates = _msg_rates.get();
@@ -25,6 +29,11 @@ void Task::loadConfiguration() {
     mDriver->setOutputRate(port, MSGOUT_NAV_PVT, rates.nav_pvt, false);
     mDriver->setOutputRate(port, MSGOUT_NAV_SIG, rates.nav_sig, false);
     mDriver->setOutputRate(port, MSGOUT_NAV_SAT, rates.nav_sat, false);
+    mDriver->setOutputRate(port, MSGOUT_RXM_RTCM, rates.rtk_info, false);
+
+    for (auto rtcm_msg: _rtcm_output_messages.get()) {
+        mDriver->setRTCMOutputRate(port, rtcm_msg);
+    }
 
     // Odometer configuration
     configuration::Odometer odom_cfg = _odometer_configuration.get();
@@ -86,6 +95,12 @@ bool Task::startHook()
 }
 void Task::updateHook()
 {
+    iodrivers_base::RawPacket rtcm;
+    while (_rtcm_in.read(rtcm, false) == RTT::NewData) {
+        mRTKInfo.addRX(rtcm.data.size());
+        mDriver->writePacket(rtcm.data.data(), rtcm.data.size());
+    }
+
     TaskBase::updateHook();
 }
 
@@ -172,6 +187,7 @@ static gps_base::Solution convertToBaseSolution(const PVT &data)
 
 struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
     Task& mTask;
+    bool mOutputRTK;
 
     PollCallbacks(Task& task, bool rtk)
         : mTask(task), mOutputRTK(rtk) {}
@@ -179,10 +195,29 @@ struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
     void pvt(PVT const& pvt) override {
         mTask._pose_samples.write(convertToRBS(pvt, mTask.mUTMConverter));
         mTask._gps_solution.write(convertToBaseSolution(pvt));
+
+        mTask.mRTKInfo.update(pvt);
+        if (mOutputRTK) {
+            mTask._rtk_info.write(mTask.mRTKInfo);
+        }
+    }
+
+    void rtcm(uint8_t const* buffer, size_t size) override {
+        iodrivers_base::RawPacket packet;
+        packet.time = base::Time::now();
+        packet.data.insert(packet.data.end(), buffer, buffer + size);
+        mTask._rtcm_out.write(packet);
+
+        mTask.mRTKInfo.addTX(size);
+    }
+
+    void rtcmReceivedMessage(RTCMReceivedMessage const& msg) override {
+        mTask.mRTKInfo.update(msg);
     }
 
     void satelliteInfo(SatelliteInfo const& info) override {
         mTask._satellite_info.write(convertToBaseSatelliteInfo(info));
+        mTask.mRTKInfo.update(info);
     }
 
     void signalInfo(SignalInfo const& info) override {
@@ -195,7 +230,7 @@ struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
 };
 void Task::processIO()
 {
-    PollCallbacks callbacks(*this);
+    PollCallbacks callbacks(*this, mOutputRTK);
     mDriver->poll(callbacks);
 }
 void Task::errorHook()
