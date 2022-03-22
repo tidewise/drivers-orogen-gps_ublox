@@ -174,9 +174,18 @@ static gps_base::Solution convertToBaseSolution(const PVT &data)
             solution.positionType = gps_base::AUTONOMOUS_2D;
             break;
         case PVT::FIX_3D:
-        case PVT::GNSS_PLUS_DEAD_RECKONING:
-            solution.positionType = gps_base::AUTONOMOUS;
+        case PVT::GNSS_PLUS_DEAD_RECKONING: {
+            if (data.fix_flags & PVT::FIX_RTK_FIXED) {
+                solution.positionType = gps_base::RTK_FIXED;
+            }
+            else if (data.fix_flags & PVT::FIX_RTK_FLOAT) {
+                solution.positionType = gps_base::RTK_FLOAT;
+            }
+            else {
+                solution.positionType = gps_base::AUTONOMOUS;
+            }
             break;
+        }
         default:
             solution.positionType = gps_base::INVALID;
             break;
