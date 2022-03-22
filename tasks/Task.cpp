@@ -23,6 +23,7 @@ void Task::loadConfiguration() {
     DevicePort port = _device_port.get();
     mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_UBX, true, false);
     mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_RTCM3X, mOutputRTK, false);
+    mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_NMEA, false, false);
 
     // Message rates
     configuration::MessageRates rates = _msg_rates.get();
