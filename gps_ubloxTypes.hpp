@@ -2,8 +2,8 @@
 #define gps_ublox_TYPES_HPP
 
 #include <cstdint>
-#include <gps_ublox/Driver.hpp>
-#include <gps_ublox/UBX.hpp>
+#include <gps_ublox/cfg.hpp>
+#include <gps_ublox/RTKInfo.hpp>
 
 namespace gps_ublox {
     /**
@@ -12,12 +12,32 @@ namespace gps_ublox {
     namespace configuration {
         /**
          * Rate of periodic messages sent by the device (per second, per epoch)
+         *
+         * Set a rate to zero to disable
          */
         struct MessageRates {
+            /** NAV-PVT message period in solution periods. Controls pose_samples
+             * and gps_solution outputs
+             */
             uint8_t nav_pvt = 1;
+            /** NAV-SIG message period in solution periods. Controls
+             * pose_samples and gps_solution outputs
+             */
             uint8_t nav_sig = 10;
+            /** NAV-SAT message period in solution periods. Controls
+             * pose_samples and gps_solution outputs
+             */
             uint8_t nav_sat = 10;
+            /** MON-RF message period in solution periods. Controls
+             * pose_samples and gps_solution outputs
+             */
             uint8_t mon_rf = 10;
+            /** Control of the rtk_info output
+             *
+             * This is actually an aggregate of messages. Part of the structure
+             * is filled with NAV-SAT (controlled with nav_sat)
+             */
+            uint8_t rtk_info = 0;
         };
 
         /**

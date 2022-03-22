@@ -16,8 +16,12 @@ Task::~Task()
 }
 
 void Task::loadConfiguration() {
+    auto const& rtcmOutput = _rtcm_output_messages.get();
+    mOutputRTK = !rtcmOutput.empty();
+
     DevicePort port = _device_port.get();
     mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_UBX, true, false);
+    mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_RTCM3X, mOutputRTK, false);
 
     // Message rates
     configuration::MessageRates rates = _msg_rates.get();
@@ -25,6 +29,11 @@ void Task::loadConfiguration() {
     mDriver->setOutputRate(port, MSGOUT_NAV_PVT, rates.nav_pvt, false);
     mDriver->setOutputRate(port, MSGOUT_NAV_SIG, rates.nav_sig, false);
     mDriver->setOutputRate(port, MSGOUT_NAV_SAT, rates.nav_sat, false);
+    mDriver->setOutputRate(port, MSGOUT_RXM_RTCM, rates.rtk_info, false);
+
+    for (auto rtcm_msg: _rtcm_output_messages.get()) {
+        mDriver->setRTCMOutputRate(port, rtcm_msg);
+    }
 
     // Odometer configuration
     configuration::Odometer odom_cfg = _odometer_configuration.get();
@@ -86,6 +95,12 @@ bool Task::startHook()
 }
 void Task::updateHook()
 {
+    iodrivers_base::RawPacket rtcm;
+    while (_rtcm_in.read(rtcm, false) == RTT::NewData) {
+        mRTKInfo.addRX(rtcm.data.size());
+        mDriver->writePacket(rtcm.data.data(), rtcm.data.size());
+    }
+
     TaskBase::updateHook();
 }
 
@@ -100,7 +115,10 @@ T may_invalidate(T const& value)
     }
 }
 
-base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::PVT &data) const {
+static gps_base::Solution convertToBaseSolution(const PVT &data);
+static gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &sat_info);
+
+static base::samples::RigidBodyState convertToRBS(const gps_ublox::PVT &data, gps_base::UTMConverter& utmConverter) {
     base::samples::RigidBodyState rbs;
     gps_base::Solution geodeticPosition;
 
@@ -112,12 +130,12 @@ base::samples::RigidBodyState Task::convertToRBS(const gps_ublox::PVT &data) con
         M_PI, Eigen::Vector3d::UnitX()) * may_invalidate(body2ned_velocity);
 
     auto geodetic = convertToBaseSolution(data);
-    base::samples::RigidBodyState nwu = mUTMConverter.convertToNWU(geodetic);
+    base::samples::RigidBodyState nwu = utmConverter.convertToNWU(geodetic);
     rbs.position = nwu.position;
     rbs.cov_position = nwu.cov_position;
     return rbs;
 }
-gps_base::SatelliteInfo Task::convertToBaseSatelliteInfo(const SatelliteInfo &sat_info) const
+static gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &sat_info)
 {
     gps_base::SatelliteInfo rock_sat_info;
 
@@ -133,7 +151,7 @@ gps_base::SatelliteInfo Task::convertToBaseSatelliteInfo(const SatelliteInfo &sa
     }
     return rock_sat_info;
 }
-gps_base::Solution Task::convertToBaseSolution(const PVT &data) const
+static gps_base::Solution convertToBaseSolution(const PVT &data)
 {
     gps_base::Solution solution;
 
@@ -156,9 +174,18 @@ gps_base::Solution Task::convertToBaseSolution(const PVT &data) const
             solution.positionType = gps_base::AUTONOMOUS_2D;
             break;
         case PVT::FIX_3D:
-        case PVT::GNSS_PLUS_DEAD_RECKONING:
-            solution.positionType = gps_base::AUTONOMOUS;
+        case PVT::GNSS_PLUS_DEAD_RECKONING: {
+            if (data.fix_flags & PVT::FIX_RTK_FIXED) {
+                solution.positionType = gps_base::RTK_FIXED;
+            }
+            else if (data.fix_flags & PVT::FIX_RTK_FLOAT) {
+                solution.positionType = gps_base::RTK_FLOAT;
+            }
+            else {
+                solution.positionType = gps_base::AUTONOMOUS;
+            }
             break;
+        }
         default:
             solution.positionType = gps_base::INVALID;
             break;
@@ -166,25 +193,54 @@ gps_base::Solution Task::convertToBaseSolution(const PVT &data) const
     solution.time = data.time;
     return solution;
 }
+
+struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
+    Task& mTask;
+    bool mOutputRTK;
+
+    PollCallbacks(Task& task, bool rtk)
+        : mTask(task), mOutputRTK(rtk) {}
+
+    void pvt(PVT const& pvt) override {
+        mTask._pose_samples.write(convertToRBS(pvt, mTask.mUTMConverter));
+        mTask._gps_solution.write(convertToBaseSolution(pvt));
+
+        mTask.mRTKInfo.update(pvt);
+        if (mOutputRTK) {
+            mTask._rtk_info.write(mTask.mRTKInfo);
+        }
+    }
+
+    void rtcm(uint8_t const* buffer, size_t size) override {
+        iodrivers_base::RawPacket packet;
+        packet.time = base::Time::now();
+        packet.data.insert(packet.data.end(), buffer, buffer + size);
+        mTask._rtcm_out.write(packet);
+
+        mTask.mRTKInfo.addTX(size);
+    }
+
+    void rtcmReceivedMessage(RTCMReceivedMessage const& msg) override {
+        mTask.mRTKInfo.update(msg);
+    }
+
+    void satelliteInfo(SatelliteInfo const& info) override {
+        mTask._satellite_info.write(convertToBaseSatelliteInfo(info));
+        mTask.mRTKInfo.update(info);
+    }
+
+    void signalInfo(SignalInfo const& info) override {
+        mTask._signal_info.write(info);
+    }
+
+    void rfInfo(RFInfo const& info) override {
+        mTask._rf_info.write(info);
+    }
+};
 void Task::processIO()
 {
-    gps_ublox::UBX::Frame frame = mDriver->readFrame();
-    if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_PVT) {
-        gps_ublox::PVT data = UBX::parsePVT(frame.payload);
-
-        _pose_samples.write(convertToRBS(data));
-        _gps_solution.write(convertToBaseSolution(data));
-    }
-    else if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_SAT) {
-        auto info = convertToBaseSatelliteInfo(UBX::parseSAT(frame.payload));
-        _satellite_info.write(info);
-    }
-    else if (frame.msg_class == UBX::MSG_CLASS_NAV && frame.msg_id == UBX::MSG_ID_SIG) {
-        _signal_info.write(UBX::parseSIG(frame.payload));
-    }
-    else if (frame.msg_class == UBX::MSG_CLASS_MON && frame.msg_id == UBX::MSG_ID_RF) {
-        _rf_info.write(UBX::parseRF(frame.payload));
-    }
+    PollCallbacks callbacks(*this, mOutputRTK);
+    mDriver->poll(callbacks);
 }
 void Task::errorHook()
 {

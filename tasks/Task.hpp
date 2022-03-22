@@ -9,6 +9,7 @@
 #include <base/samples/RigidBodyState.hpp>
 
 namespace gps_ublox{
+    struct PollCallbacks;
 
     /*! \class Task
      * \brief The task context provides and requires services. It uses an ExecutionEngine to perform its functions.
@@ -26,10 +27,15 @@ namespace gps_ublox{
      */
     class Task : public TaskBase
     {
-	friend class TaskBase;
+        friend class TaskBase;
+        friend struct PollCallbacks;
+
     protected:
         gps_base::UTMConverter mUTMConverter;
         std::unique_ptr<gps_ublox::Driver> mDriver;
+
+        bool mOutputRTK;
+        RTKInfo mRTKInfo;
 
     public:
         /** TaskContext constructor for Task
@@ -102,9 +108,6 @@ namespace gps_ublox{
         void cleanupHook();
 
         void loadConfiguration();
-        base::samples::RigidBodyState convertToRBS(const PVT &data) const;
-        gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &data) const;
-        gps_base::Solution convertToBaseSolution(const PVT &data) const;
     };
 }
 
