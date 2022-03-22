@@ -189,6 +189,14 @@ void Task::stopHook()
 }
 void Task::cleanupHook()
 {
+    DevicePort port = _device_port.get();
+    mDriver->setOutputRate(port, MSGOUT_MON_RF, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_PVT, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_SIG, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_SAT, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_RELPOSNED, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_RXM_RTCM, 0, false);
+    TaskBase::cleanupHook();
 }
 
 static RigidBodyState convertToRBS(PVT const& data, gps_base::UTMConverter& utmConverter) {
