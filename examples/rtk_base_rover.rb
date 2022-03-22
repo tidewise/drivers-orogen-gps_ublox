@@ -10,6 +10,7 @@ Syskit.extend_model OroGen.gps_ublox.Task do
         properties.rtcm_output_messages = [1074, 1084, 1094, 1124, 1230, 4072]
         properties.msg_rates do |r|
             r.rtk_info = 1
+            r.nav_relposned = 1
             r
         end
     end

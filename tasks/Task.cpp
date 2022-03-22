@@ -30,6 +30,7 @@ void Task::loadConfiguration() {
     mDriver->setOutputRate(port, MSGOUT_NAV_PVT, rates.nav_pvt, false);
     mDriver->setOutputRate(port, MSGOUT_NAV_SIG, rates.nav_sig, false);
     mDriver->setOutputRate(port, MSGOUT_NAV_SAT, rates.nav_sat, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_RELPOSNED, rates.nav_relposned, false);
     mDriver->setOutputRate(port, MSGOUT_RXM_RTCM, rates.rtk_info, false);
 
     for (auto rtcm_msg: _rtcm_output_messages.get()) {
@@ -140,6 +141,12 @@ struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
         }
     }
 
+    void relposned(RelPosNED const& relposned) override {
+        mTask._rtk_relative_pose_samples.write(
+            convertToRBS(rbsFromPVT, relposned)
+        );
+    }
+
     void rtcm(uint8_t const* buffer, size_t size) override {
         iodrivers_base::RawPacket packet;
         packet.time = base::Time::now();
@@ -200,6 +207,26 @@ static RigidBodyState convertToRBS(PVT const& data, gps_base::UTMConverter& utmC
     rbs.cov_position = nwu.cov_position;
     return rbs;
 }
+
+static RigidBodyState convertToRBS(RigidBodyState const& fromPVT, RelPosNED const& data) {
+    RigidBodyState rbs;
+    rbs.time = fromPVT.time;
+    if (!(data.flags & RelPosNED::FLAGS_RELATIVE_POSITION_VALID)) {
+        return rbs;
+    }
+
+    rbs.position = Eigen::Vector3d(
+        data.relative_position_NED.x(),
+        -data.relative_position_NED.y(),
+        -data.relative_position_NED.z()
+    );
+    rbs.cov_position(0, 0) = data.accuracy_NED.x() * data.accuracy_NED.x();
+    rbs.cov_position(1, 1) = data.accuracy_NED.y() * data.accuracy_NED.y();
+    rbs.cov_position(2, 2) = data.accuracy_NED.z() * data.accuracy_NED.z();
+    rbs.velocity = fromPVT.velocity;
+    return rbs;
+}
+
 static gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &sat_info)
 {
     gps_base::SatelliteInfo rock_sat_info;
