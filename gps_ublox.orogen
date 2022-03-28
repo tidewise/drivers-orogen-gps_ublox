@@ -58,6 +58,11 @@ task_context "Task", subclasses: "iodrivers_base::Task" do
     # This port's period is configured by the nav_pvt field of msg_rates
     output_port "pose_samples", "base/samples/RigidBodyState"
 
+    # Pose samples relatively to our RTK base
+    #
+    # This port's period is configured by the nav_relposned field of msg_rates
+    output_port "rtk_relative_pose_samples", "base/samples/RigidBodyState"
+
     # Description of the GNSS solution, including solution quality information
     #
     # This port's period is configured by the nav_pvt field of msg_rates

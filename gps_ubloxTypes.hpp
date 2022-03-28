@@ -20,6 +20,10 @@ namespace gps_ublox {
              * and gps_solution outputs
              */
             uint8_t nav_pvt = 1;
+            /** NAV-RELPOSNED message period in solution periods. Controls
+             * the rtk_relative_position_samples output
+             */
+            uint8_t nav_relposned = 0;
             /** NAV-SIG message period in solution periods. Controls
              * pose_samples and gps_solution outputs
              */

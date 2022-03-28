@@ -5,6 +5,7 @@
 #include <gps_ublox/Driver.hpp>
 
 using namespace gps_ublox;
+using base::samples::RigidBodyState;
 
 Task::Task(std::string const& name)
     : TaskBase(name)
@@ -29,6 +30,7 @@ void Task::loadConfiguration() {
     mDriver->setOutputRate(port, MSGOUT_NAV_PVT, rates.nav_pvt, false);
     mDriver->setOutputRate(port, MSGOUT_NAV_SIG, rates.nav_sig, false);
     mDriver->setOutputRate(port, MSGOUT_NAV_SAT, rates.nav_sat, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_RELPOSNED, rates.nav_relposned, false);
     mDriver->setOutputRate(port, MSGOUT_RXM_RTCM, rates.rtk_info, false);
 
     for (auto rtcm_msg: _rtcm_output_messages.get()) {
@@ -117,9 +119,79 @@ T may_invalidate(T const& value)
 
 static gps_base::Solution convertToBaseSolution(const PVT &data);
 static gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &sat_info);
+static RigidBodyState convertToRBS(PVT const& data, gps_base::UTMConverter& utmConverter);
+static RigidBodyState convertToRBS(RigidBodyState const& fromPVT, RelPosNED const& data);
 
-static base::samples::RigidBodyState convertToRBS(const gps_ublox::PVT &data, gps_base::UTMConverter& utmConverter) {
-    base::samples::RigidBodyState rbs;
+struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
+    Task& mTask;
+    RigidBodyState rbsFromPVT;
+    bool mOutputRTK;
+
+    PollCallbacks(Task& task, bool rtk)
+        : mTask(task), mOutputRTK(rtk) {}
+
+    void pvt(PVT const& pvt) override {
+        rbsFromPVT = convertToRBS(pvt, mTask.mUTMConverter);
+        mTask._pose_samples.write(rbsFromPVT);
+        mTask._gps_solution.write(convertToBaseSolution(pvt));
+
+        mTask.mRTKInfo.update(pvt);
+        if (mOutputRTK) {
+            mTask._rtk_info.write(mTask.mRTKInfo);
+        }
+    }
+
+    void relposned(RelPosNED const& relposned) override {
+        mTask._rtk_relative_pose_samples.write(
+            convertToRBS(rbsFromPVT, relposned)
+        );
+    }
+
+    void rtcm(uint8_t const* buffer, size_t size) override {
+        iodrivers_base::RawPacket packet;
+        packet.time = base::Time::now();
+        packet.data.insert(packet.data.end(), buffer, buffer + size);
+        mTask._rtcm_out.write(packet);
+
+        mTask.mRTKInfo.addTX(size);
+    }
+
+    void rtcmReceivedMessage(RTCMReceivedMessage const& msg) override {
+        mTask.mRTKInfo.update(msg);
+    }
+
+    void satelliteInfo(SatelliteInfo const& info) override {
+        mTask._satellite_info.write(convertToBaseSatelliteInfo(info));
+        mTask.mRTKInfo.update(info);
+    }
+
+    void signalInfo(SignalInfo const& info) override {
+        mTask._signal_info.write(info);
+    }
+
+    void rfInfo(RFInfo const& info) override {
+        mTask._rf_info.write(info);
+    }
+};
+void Task::processIO()
+{
+    PollCallbacks callbacks(*this, mOutputRTK);
+    mDriver->poll(callbacks);
+}
+void Task::errorHook()
+{
+    TaskBase::errorHook();
+}
+void Task::stopHook()
+{
+    TaskBase::stopHook();
+}
+void Task::cleanupHook()
+{
+}
+
+static RigidBodyState convertToRBS(PVT const& data, gps_base::UTMConverter& utmConverter) {
+    RigidBodyState rbs;
     gps_base::Solution geodeticPosition;
 
     Eigen::Vector3d body2ned_velocity = Eigen::Vector3d(
@@ -130,11 +202,31 @@ static base::samples::RigidBodyState convertToRBS(const gps_ublox::PVT &data, gp
         M_PI, Eigen::Vector3d::UnitX()) * may_invalidate(body2ned_velocity);
 
     auto geodetic = convertToBaseSolution(data);
-    base::samples::RigidBodyState nwu = utmConverter.convertToNWU(geodetic);
+    RigidBodyState nwu = utmConverter.convertToNWU(geodetic);
     rbs.position = nwu.position;
     rbs.cov_position = nwu.cov_position;
     return rbs;
 }
+
+static RigidBodyState convertToRBS(RigidBodyState const& fromPVT, RelPosNED const& data) {
+    RigidBodyState rbs;
+    rbs.time = fromPVT.time;
+    if (!(data.flags & RelPosNED::FLAGS_RELATIVE_POSITION_VALID)) {
+        return rbs;
+    }
+
+    rbs.position = Eigen::Vector3d(
+        data.relative_position_NED.x(),
+        -data.relative_position_NED.y(),
+        -data.relative_position_NED.z()
+    );
+    rbs.cov_position(0, 0) = data.accuracy_NED.x() * data.accuracy_NED.x();
+    rbs.cov_position(1, 1) = data.accuracy_NED.y() * data.accuracy_NED.y();
+    rbs.cov_position(2, 2) = data.accuracy_NED.z() * data.accuracy_NED.z();
+    rbs.velocity = fromPVT.velocity;
+    return rbs;
+}
+
 static gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &sat_info)
 {
     gps_base::SatelliteInfo rock_sat_info;
@@ -192,65 +284,4 @@ static gps_base::Solution convertToBaseSolution(const PVT &data)
     }
     solution.time = data.time;
     return solution;
-}
-
-struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
-    Task& mTask;
-    bool mOutputRTK;
-
-    PollCallbacks(Task& task, bool rtk)
-        : mTask(task), mOutputRTK(rtk) {}
-
-    void pvt(PVT const& pvt) override {
-        mTask._pose_samples.write(convertToRBS(pvt, mTask.mUTMConverter));
-        mTask._gps_solution.write(convertToBaseSolution(pvt));
-
-        mTask.mRTKInfo.update(pvt);
-        if (mOutputRTK) {
-            mTask._rtk_info.write(mTask.mRTKInfo);
-        }
-    }
-
-    void rtcm(uint8_t const* buffer, size_t size) override {
-        iodrivers_base::RawPacket packet;
-        packet.time = base::Time::now();
-        packet.data.insert(packet.data.end(), buffer, buffer + size);
-        mTask._rtcm_out.write(packet);
-
-        mTask.mRTKInfo.addTX(size);
-    }
-
-    void rtcmReceivedMessage(RTCMReceivedMessage const& msg) override {
-        mTask.mRTKInfo.update(msg);
-    }
-
-    void satelliteInfo(SatelliteInfo const& info) override {
-        mTask._satellite_info.write(convertToBaseSatelliteInfo(info));
-        mTask.mRTKInfo.update(info);
-    }
-
-    void signalInfo(SignalInfo const& info) override {
-        mTask._signal_info.write(info);
-    }
-
-    void rfInfo(RFInfo const& info) override {
-        mTask._rf_info.write(info);
-    }
-};
-void Task::processIO()
-{
-    PollCallbacks callbacks(*this, mOutputRTK);
-    mDriver->poll(callbacks);
-}
-void Task::errorHook()
-{
-    TaskBase::errorHook();
-}
-void Task::stopHook()
-{
-    TaskBase::stopHook();
-}
-void Task::cleanupHook()
-{
-    TaskBase::cleanupHook();
 }
