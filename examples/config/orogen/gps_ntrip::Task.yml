@@ -1,0 +1,7 @@
+--- name:default
+host: "170.84.40.52"
+port: 2101
+user: opstw
+password: "opstw123"
+mountpoint: ONRJ0
+
