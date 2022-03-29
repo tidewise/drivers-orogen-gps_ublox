@@ -107,7 +107,7 @@ namespace gps_ublox{
          */
         void cleanupHook();
 
-        void loadConfiguration();
+        void loadConfiguration(Driver& driver);
     };
 }
 
