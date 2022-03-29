@@ -101,7 +101,7 @@ void Task::updateHook()
     iodrivers_base::RawPacket rtcm;
     while (_rtcm_in.read(rtcm, false) == RTT::NewData) {
         mRTKInfo.addRX(rtcm.data.size());
-        mDriver->writePacket(rtcm.data.data(), rtcm.data.size());
+        mDriver->writeRTCM(rtcm.data);
     }
 
     TaskBase::updateHook();
