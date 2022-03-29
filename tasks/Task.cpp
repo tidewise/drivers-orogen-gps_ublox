@@ -16,52 +16,52 @@ Task::~Task()
 {
 }
 
-void Task::loadConfiguration() {
+void Task::loadConfiguration(Driver& driver) {
     auto const& rtcmOutput = _rtcm_output_messages.get();
     mOutputRTK = !rtcmOutput.empty();
 
     DevicePort port = _device_port.get();
-    mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_UBX, true, false);
-    mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_RTCM3X, mOutputRTK, false);
-    mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_NMEA, false, false);
+    driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_UBX, true, false);
+    driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_RTCM3X, mOutputRTK, false);
+    driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_NMEA, false, false);
 
     // Message rates
     configuration::MessageRates rates = _msg_rates.get();
-    mDriver->setOutputRate(port, MSGOUT_MON_RF, rates.mon_rf, false);
-    mDriver->setOutputRate(port, MSGOUT_NAV_PVT, rates.nav_pvt, false);
-    mDriver->setOutputRate(port, MSGOUT_NAV_SIG, rates.nav_sig, false);
-    mDriver->setOutputRate(port, MSGOUT_NAV_SAT, rates.nav_sat, false);
-    mDriver->setOutputRate(port, MSGOUT_NAV_RELPOSNED, rates.nav_relposned, false);
-    mDriver->setOutputRate(port, MSGOUT_RXM_RTCM, rates.rtk_info, false);
+    driver.setOutputRate(port, MSGOUT_MON_RF, rates.mon_rf, false);
+    driver.setOutputRate(port, MSGOUT_NAV_PVT, rates.nav_pvt, false);
+    driver.setOutputRate(port, MSGOUT_NAV_SIG, rates.nav_sig, false);
+    driver.setOutputRate(port, MSGOUT_NAV_SAT, rates.nav_sat, false);
+    driver.setOutputRate(port, MSGOUT_NAV_RELPOSNED, rates.nav_relposned, false);
+    driver.setOutputRate(port, MSGOUT_RXM_RTCM, rates.rtk_info, false);
 
     for (auto rtcm_msg: _rtcm_output_messages.get()) {
-        mDriver->setRTCMOutputRate(port, rtcm_msg);
+        driver.setRTCMOutputRate(port, rtcm_msg);
     }
 
     // Odometer configuration
     configuration::Odometer odom_cfg = _odometer_configuration.get();
-    mDriver->setOdometer(odom_cfg.enabled, false);
-    mDriver->setLowSpeedCourseOverGroundFilter(odom_cfg.low_speed_course_over_ground_filter, false);
-    mDriver->setOutputLowPassFilteredVelocity(odom_cfg.output_low_pass_filtered_velocity, false);
-    mDriver->setOutputLowPassFilteredHeading(odom_cfg.output_low_pass_filtered_heading, false);
-    mDriver->setOdometerProfile(odom_cfg.odometer_profile, false);
-    mDriver->setUpperSpeedLimitForHeadingFilter(odom_cfg.upper_speed_limit_for_heading_filter, false);
-    mDriver->setMaxPositionAccuracyForLowSpeedHeadingFilter(
+    driver.setOdometer(odom_cfg.enabled, false);
+    driver.setLowSpeedCourseOverGroundFilter(odom_cfg.low_speed_course_over_ground_filter, false);
+    driver.setOutputLowPassFilteredVelocity(odom_cfg.output_low_pass_filtered_velocity, false);
+    driver.setOutputLowPassFilteredHeading(odom_cfg.output_low_pass_filtered_heading, false);
+    driver.setOdometerProfile(odom_cfg.odometer_profile, false);
+    driver.setUpperSpeedLimitForHeadingFilter(odom_cfg.upper_speed_limit_for_heading_filter, false);
+    driver.setMaxPositionAccuracyForLowSpeedHeadingFilter(
         odom_cfg.max_position_accuracy_for_low_speed_heading_filter, false);
-    mDriver->setVelocityLowPassFilterLevel(odom_cfg.velocity_low_pass_filter_level, false);
-    mDriver->setHeadingLowPassFilterLevel(odom_cfg.heading_low_pass_filter_level, false);
+    driver.setVelocityLowPassFilterLevel(odom_cfg.velocity_low_pass_filter_level, false);
+    driver.setHeadingLowPassFilterLevel(odom_cfg.heading_low_pass_filter_level, false);
 
     // Navigation configuration
     configuration::Navigation nav_cfg = _navigation_configuration.get();
-    mDriver->setPositionMeasurementPeriod(
+    driver.setPositionMeasurementPeriod(
         nav_cfg.position_measurement_period.toMilliseconds(), false);
-    mDriver->setMeasurementsPerSolutionRatio(
+    driver.setMeasurementsPerSolutionRatio(
         nav_cfg.measurements_per_solution_ratio, false);
-    mDriver->setMeasurementRefTime(nav_cfg.measurement_ref_time, false);
-    mDriver->setDynamicModel(nav_cfg.dynamic_model, false);
-    mDriver->setSpeedThreshold(
+    driver.setMeasurementRefTime(nav_cfg.measurement_ref_time, false);
+    driver.setDynamicModel(nav_cfg.dynamic_model, false);
+    driver.setSpeedThreshold(
         std::round(nav_cfg.speed_threshold * 100), false);
-    mDriver->setStaticHoldDistanceThreshold(
+    driver.setStaticHoldDistanceThreshold(
         nav_cfg.static_hold_distance_threshold, false);
 }
 
@@ -73,19 +73,20 @@ bool Task::configureHook()
 {
     mUTMConverter.setParameters(_utm_parameters.get());
 
+    std::unique_ptr<gps_ublox::Driver> driver(new Driver());
     iodrivers_base::ConfigureGuard guard(this);
-    mDriver = std::unique_ptr<gps_ublox::Driver>(new Driver());
     if (!_io_port.get().empty()) {
-        mDriver->openURI(_io_port.get());
+        driver->openURI(_io_port.get());
     }
-    setDriver(mDriver.get());
+    setDriver(driver.get());
 
     if (! TaskBase::configureHook()) {
         return false;
     }
 
-    loadConfiguration();
+    loadConfiguration(*driver);
 
+    mDriver = move(driver);
     guard.commit();
     return true;
 }
