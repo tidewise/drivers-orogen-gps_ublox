@@ -23,6 +23,7 @@ void Task::loadConfiguration() {
     DevicePort port = _device_port.get();
     mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_UBX, true, false);
     mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_RTCM3X, mOutputRTK, false);
+    mDriver->setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_NMEA, false, false);
 
     // Message rates
     configuration::MessageRates rates = _msg_rates.get();
@@ -188,18 +189,21 @@ void Task::stopHook()
 }
 void Task::cleanupHook()
 {
+    DevicePort port = _device_port.get();
+    mDriver->setOutputRate(port, MSGOUT_MON_RF, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_PVT, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_SIG, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_SAT, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_NAV_RELPOSNED, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_RXM_RTCM, 0, false);
+    TaskBase::cleanupHook();
 }
 
 static RigidBodyState convertToRBS(PVT const& data, gps_base::UTMConverter& utmConverter) {
     RigidBodyState rbs;
-    gps_base::Solution geodeticPosition;
-
-    Eigen::Vector3d body2ned_velocity = Eigen::Vector3d(
-        data.vel_ned.x(), data.vel_ned.y(), data.vel_ned.z());
-
     rbs.time = data.time;
-    rbs.velocity = Eigen::AngleAxisd(
-        M_PI, Eigen::Vector3d::UnitX()) * may_invalidate(body2ned_velocity);
+    rbs.velocity =
+        Eigen::Vector3d(data.vel_ned.x(), -data.vel_ned.y(), -data.vel_ned.z());
 
     auto geodetic = convertToBaseSolution(data);
     RigidBodyState nwu = utmConverter.convertToNWU(geodetic);

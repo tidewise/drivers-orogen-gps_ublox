@@ -1,0 +1,12 @@
+--- name:default
+rtcm_output_messages: [1074, 1084, 1094, 1124, 1230, 4072]
+msg_rates:
+  rtk_info: 1
+  nav_relposned: 1
+navigation_configuration:
+  dynamic_model: DYNAMIC_MODEL_STATIONARY
+
+--- name:reference
+io_port: "serial:///dev/ttyACM0:115200"
+--- name:rover
+io_port: "serial:///dev/ttyACM1:115200"

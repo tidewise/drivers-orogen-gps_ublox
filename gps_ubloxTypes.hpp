@@ -67,7 +67,7 @@ namespace gps_ublox {
             base::Time position_measurement_period = base::Time::fromMilliseconds(1000);
             uint16_t measurements_per_solution_ratio = 1;
             MeasurementRefTime measurement_ref_time = MEASUREMENT_REF_TIME_GPS;
-            DynamicModel dynamic_model = DYNAMIC_MODEL_SEA;
+            DynamicModel dynamic_model = DYNAMIC_MODEL_PORTABLE;
 
             /** Speed below which the receiver is considered static (in m/s)
              *
