@@ -36,6 +36,8 @@ namespace gps_ublox{
 
         bool mOutputRTK;
         RTKInfo mRTKInfo;
+        uint32_t mTOW;
+        base::Time mUTCAtTOW;
 
     public:
         /** TaskContext constructor for Task

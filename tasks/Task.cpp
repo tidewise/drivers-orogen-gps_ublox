@@ -122,20 +122,22 @@ T may_invalidate(T const& value)
 static gps_base::Solution convertToBaseSolution(const PVT &data);
 static gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &sat_info);
 static RigidBodyState convertToRBS(PVT const& data, gps_base::UTMConverter& utmConverter);
-static RigidBodyState convertToRBS(RigidBodyState const& fromPVT, RelPosNED const& data);
+static RigidBodyState convertToRBS(RelPosNED const& data);
 
 struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
     Task& mTask;
-    RigidBodyState rbsFromPVT;
     bool mOutputRTK;
 
     PollCallbacks(Task& task, bool rtk)
         : mTask(task), mOutputRTK(rtk) {}
 
     void pvt(PVT const& pvt) override {
-        rbsFromPVT = convertToRBS(pvt, mTask.mUTMConverter);
-        mTask._pose_samples.write(rbsFromPVT);
+        auto rbs = convertToRBS(pvt, mTask.mUTMConverter);
+        mTask._pose_samples.write(rbs);
         mTask._gps_solution.write(convertToBaseSolution(pvt));
+
+        mTask.mTOW = pvt.time_of_week;
+        mTask.mUTCAtTOW = pvt.time;
 
         mTask.mRTKInfo.update(pvt);
         if (mOutputRTK) {
@@ -144,9 +146,19 @@ struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
     }
 
     void relposned(RelPosNED const& relposned) override {
-        mTask._rtk_relative_pose_samples.write(
-            convertToRBS(rbsFromPVT, relposned)
-        );
+        if (relposned.time_of_week != mTask.mTOW) {
+            // TODO: it happens that in my tests the PVT message always arrived
+            // before the RELPOSNED, which actually makes sense
+            //
+            // BUT I could not find anything guaranteeing this in the documentation.
+            // Try to handle that case here.
+            return;
+        }
+
+        auto rbs = convertToRBS(relposned);
+        rbs.time = mTask.mUTCAtTOW;
+
+        mTask._rtk_relative_pose_samples.write(rbs);
     }
 
     void rtcm(uint8_t const* buffer, size_t size) override {
@@ -213,9 +225,8 @@ static RigidBodyState convertToRBS(PVT const& data, gps_base::UTMConverter& utmC
     return rbs;
 }
 
-static RigidBodyState convertToRBS(RigidBodyState const& fromPVT, RelPosNED const& data) {
+static RigidBodyState convertToRBS(RelPosNED const& data) {
     RigidBodyState rbs;
-    rbs.time = fromPVT.time;
     if (!(data.flags & RelPosNED::FLAGS_RELATIVE_POSITION_VALID)) {
         return rbs;
     }
@@ -228,7 +239,7 @@ static RigidBodyState convertToRBS(RigidBodyState const& fromPVT, RelPosNED cons
     rbs.cov_position(0, 0) = data.accuracy_NED.x() * data.accuracy_NED.x();
     rbs.cov_position(1, 1) = data.accuracy_NED.y() * data.accuracy_NED.y();
     rbs.cov_position(2, 2) = data.accuracy_NED.z() * data.accuracy_NED.z();
-    rbs.velocity = fromPVT.velocity;
+    rbs.velocity = rbs.velocity;
     return rbs;
 }
 
