@@ -21,6 +21,8 @@ void Task::loadConfiguration(Driver& driver) {
     mOutputRTK = !rtcmOutput.empty();
 
     DevicePort port = _device_port.get();
+    driver.setPortProtocol(port, DIRECTION_INPUT, PROTOCOL_UBX, true, false);
+    driver.setPortProtocol(port, DIRECTION_INPUT, PROTOCOL_RTCM3X, true, false);
     driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_UBX, true, false);
     driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_RTCM3X, mOutputRTK, false);
     driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_NMEA, false, false);
@@ -33,6 +35,7 @@ void Task::loadConfiguration(Driver& driver) {
     driver.setOutputRate(port, MSGOUT_NAV_SAT, rates.nav_sat, false);
     driver.setOutputRate(port, MSGOUT_NAV_RELPOSNED, rates.nav_relposned, false);
     driver.setOutputRate(port, MSGOUT_RXM_RTCM, rates.rtk_info, false);
+    driver.setOutputRate(port, MSGOUT_MON_COMMS, rates.mon_comms, false);
 
     for (auto rtcm_msg: _rtcm_output_messages.get()) {
         driver.setRTCMOutputRate(port, rtcm_msg);
@@ -186,6 +189,10 @@ struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
     void rfInfo(RFInfo const& info) override {
         mTask._rf_info.write(info);
     }
+
+    void commsInfo(CommsInfo const& info) override {
+        mTask._comms_info.write(info);
+    }
 };
 void Task::processIO()
 {
@@ -209,6 +216,8 @@ void Task::cleanupHook()
     mDriver->setOutputRate(port, MSGOUT_NAV_SAT, 0, false);
     mDriver->setOutputRate(port, MSGOUT_NAV_RELPOSNED, 0, false);
     mDriver->setOutputRate(port, MSGOUT_RXM_RTCM, 0, false);
+    mDriver->setOutputRate(port, MSGOUT_MON_COMMS, 0, false);
+
     TaskBase::cleanupHook();
 }
 

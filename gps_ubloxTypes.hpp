@@ -25,15 +25,17 @@ namespace gps_ublox {
              */
             uint8_t nav_relposned = 0;
             /** NAV-SIG message period in solution periods. Controls
-             * pose_samples and gps_solution outputs
+             * signal_info
              */
             uint8_t nav_sig = 10;
-            /** NAV-SAT message period in solution periods. Controls
-             * pose_samples and gps_solution outputs
+            /** NAV-SAT message period in solution periods. Control satellite_info
              */
             uint8_t nav_sat = 10;
+            /** MON-COMMS message period in solution periods. Controls comms_info
+             */
+            uint8_t mon_comms = 0;
             /** MON-RF message period in solution periods. Controls
-             * pose_samples and gps_solution outputs
+             * rf_info outpus
              */
             uint8_t mon_rf = 10;
             /** Control of the rtk_info output
