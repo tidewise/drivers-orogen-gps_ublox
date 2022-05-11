@@ -276,6 +276,11 @@ static gps_base::Solution convertToBaseSolution(const PVT &data)
     solution.geoidalSeparation = base::unknown<double>();
     solution.latitude = data.latitude.getDeg();
     solution.longitude = data.longitude.getDeg();
+
+    float gps2ellipsoid = data.height;
+    float gps2msl = data.height_above_mean_sea_level;
+    float msl2ellipsoid = gps2ellipsoid - gps2msl;
+    solution.geoidalSeparation = msl2ellipsoid;
     solution.altitude = data.height_above_mean_sea_level;
     solution.deviationAltitude = data.vertical_accuracy;
     solution.deviationLatitude = data.horizontal_accuracy;
