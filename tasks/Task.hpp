@@ -38,6 +38,7 @@ namespace gps_ublox{
         RTKInfo mRTKInfo;
         uint32_t mTOW;
         base::Time mUTCAtTOW;
+        base::Vector3d mVelocityAtTOW;
 
     public:
         /** TaskContext constructor for Task

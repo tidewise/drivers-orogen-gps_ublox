@@ -141,6 +141,7 @@ struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
 
         mTask.mTOW = pvt.time_of_week;
         mTask.mUTCAtTOW = pvt.time;
+        mTask.mVelocityAtTOW = rbs.velocity;
 
         mTask.mRTKInfo.update(pvt);
         if (mOutputRTK) {
@@ -160,6 +161,7 @@ struct gps_ublox::PollCallbacks : gps_ublox::Driver::PollCallbacks {
 
         auto rbs = convertToRBS(relposned);
         rbs.time = mTask.mUTCAtTOW;
+        rbs.velocity = mTask.mVelocityAtTOW;
 
         mTask._rtk_relative_pose_samples.write(rbs);
     }
