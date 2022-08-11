@@ -263,7 +263,7 @@ static gps_base::SatelliteInfo convertToBaseSatelliteInfo(const SatelliteInfo &s
         gps_base::Satellite sat;
         sat.azimuth = (int)data.azimuth.getDeg();
         sat.elevation = (int)data.elevation.getDeg();
-        sat.PRN = data.satellite_id;
+        sat.PRN = (static_cast<uint32_t>(data.gnss_id) << 8) + data.satellite_id;
         sat.SNR = (double)data.signal_strength;
 
         rock_sat_info.knownSatellites.push_back(sat);
