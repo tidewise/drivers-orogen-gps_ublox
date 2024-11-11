@@ -274,8 +274,14 @@ static gps_base::Solution convertToBaseSolution(const PVT &data)
 {
     gps_base::Solution solution;
 
-    solution.ageOfDifferentialCorrections = base::unknown<double>();
-    solution.geoidalSeparation = base::unknown<double>();
+    double corrAge = data.age_of_differential_corrections.toSeconds();
+    if (corrAge < 120) {
+        solution.ageOfDifferentialCorrections = corrAge;
+    }
+    else {
+        solution.ageOfDifferentialCorrections = base::unknown<double>();
+    }
+
     solution.latitude = data.latitude.getDeg();
     solution.longitude = data.longitude.getDeg();
 
