@@ -40,6 +40,12 @@ namespace gps_ublox{
         base::Time mUTCAtTOW;
         base::Vector3d mVelocityAtTOW;
 
+        static void disableAllOutputs(Driver& driver, DevicePort port);
+        static void configureOutputs(
+            Driver& driver, DevicePort port, configuration::MessageRates const& rates,
+            bool rtk
+        );
+
     public:
         /** TaskContext constructor for Task
          * \param name Name of the task. This name needs to be unique to make it identifiable via nameservices.
