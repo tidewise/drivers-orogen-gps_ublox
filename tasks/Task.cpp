@@ -24,19 +24,11 @@ void Task::loadConfiguration(Driver& driver) {
     driver.setPortProtocol(port, DIRECTION_INPUT, PROTOCOL_UBX, true, false);
     driver.setPortProtocol(port, DIRECTION_INPUT, PROTOCOL_RTCM3X, true, false);
     driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_UBX, true, false);
-    driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_RTCM3X, mOutputRTK, false);
     driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_NMEA, false, false);
+    disableAllOutputs(driver, port);
 
-    // Message rates
-    configuration::MessageRates rates = _msg_rates.get();
-    driver.setOutputRate(port, MSGOUT_MON_RF, rates.mon_rf, false);
-    driver.setOutputRate(port, MSGOUT_NAV_PVT, rates.nav_pvt, false);
-    driver.setOutputRate(port, MSGOUT_NAV_SIG, rates.nav_sig, false);
-    driver.setOutputRate(port, MSGOUT_NAV_SAT, rates.nav_sat, false);
-    driver.setOutputRate(port, MSGOUT_NAV_RELPOSNED, rates.nav_relposned, false);
-    driver.setOutputRate(port, MSGOUT_RXM_RTCM, rates.rtk_info, false);
-    driver.setOutputRate(port, MSGOUT_MON_COMMS, rates.mon_comms, false);
-
+    // We configure the RTCM output rates but disable the RTCM message output altogether,
+    // to save on start times
     for (auto rtcm_msg: _rtcm_output_messages.get()) {
         driver.setRTCMOutputRate(port, rtcm_msg);
     }
@@ -89,7 +81,7 @@ bool Task::configureHook()
 
     loadConfiguration(*driver);
 
-    mDriver = move(driver);
+    mDriver = std::move(driver);
     guard.commit();
     return true;
 }
@@ -98,6 +90,12 @@ bool Task::startHook()
     if (! TaskBase::startHook()) {
         return false;
     }
+
+    // Message rates
+    DevicePort port = _device_port.get();
+    configuration::MessageRates rates = _msg_rates.get();
+    configureOutputs(*mDriver, port, rates, mOutputRTK);
+
     return true;
 }
 void Task::updateHook()
@@ -207,21 +205,37 @@ void Task::errorHook()
 }
 void Task::stopHook()
 {
+    disableAllOutputs(*mDriver, _device_port.get());
+
     TaskBase::stopHook();
 }
 void Task::cleanupHook()
 {
-    DevicePort port = _device_port.get();
-    mDriver->setOutputRate(port, MSGOUT_MON_RF, 0, false);
-    mDriver->setOutputRate(port, MSGOUT_NAV_PVT, 0, false);
-    mDriver->setOutputRate(port, MSGOUT_NAV_SIG, 0, false);
-    mDriver->setOutputRate(port, MSGOUT_NAV_SAT, 0, false);
-    mDriver->setOutputRate(port, MSGOUT_NAV_RELPOSNED, 0, false);
-    mDriver->setOutputRate(port, MSGOUT_RXM_RTCM, 0, false);
-    mDriver->setOutputRate(port, MSGOUT_MON_COMMS, 0, false);
-
     TaskBase::cleanupHook();
 }
+
+void Task::configureOutputs(Driver& driver, DevicePort port, configuration::MessageRates const& rates, bool rtk) {
+    driver.setOutputRate(port, MSGOUT_MON_COMMS, rates.mon_comms, false);
+    driver.setOutputRate(port, MSGOUT_NAV_SAT, rates.nav_sat, false);
+    driver.setOutputRate(port, MSGOUT_NAV_SIG, rates.nav_sig, false);
+    driver.setOutputRate(port, MSGOUT_MON_RF, rates.mon_rf, false);
+    driver.setOutputRate(port, MSGOUT_RXM_RTCM, rates.rtk_info, false);
+    driver.setOutputRate(port, MSGOUT_NAV_RELPOSNED, rates.nav_relposned, false);
+    driver.setOutputRate(port, MSGOUT_NAV_PVT, rates.nav_pvt, false);
+    driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_RTCM3X, rtk, false);
+}
+
+void Task::disableAllOutputs(Driver& driver, DevicePort port) {
+    driver.setPortProtocol(port, DIRECTION_OUTPUT, PROTOCOL_RTCM3X, false, false);
+    driver.setOutputRate(port, MSGOUT_NAV_PVT, 0, false);
+    driver.setOutputRate(port, MSGOUT_NAV_RELPOSNED, 0, false);
+    driver.setOutputRate(port, MSGOUT_RXM_RTCM, 0, false);
+    driver.setOutputRate(port, MSGOUT_MON_RF, 0, false);
+    driver.setOutputRate(port, MSGOUT_NAV_SIG, 0, false);
+    driver.setOutputRate(port, MSGOUT_NAV_SAT, 0, false);
+    driver.setOutputRate(port, MSGOUT_MON_COMMS, 0, false);
+}
+
 
 static RigidBodyState convertToRBS(PVT const& data, gps_base::UTMConverter& utmConverter) {
     RigidBodyState rbs;
